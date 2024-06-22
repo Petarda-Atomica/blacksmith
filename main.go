@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
+	"log"
 	"os"
 	"path"
 
@@ -13,10 +15,13 @@ import (
 	"github.com/gopxl/pixel/imdraw"
 	"github.com/gopxl/pixel/pixelgl"
 	"github.com/gopxl/pixel/text"
+	"github.com/sqweek/dialog"
 	"golang.org/x/image/font/basicfont"
 )
 
 var sceneName string = "Home Page"
+var openProject modDirectory
+var projectLocation string
 
 var win1 *pixelgl.Window
 var win2 *pixelgl.Window
@@ -25,6 +30,18 @@ var newfilepic pixel.Picture
 var atlas *text.Atlas
 
 var WD string
+
+type mod struct {
+	Name        string `json:"name"`
+	DownloadURL string `json:"link"`
+	Version     string `json:"version"`
+}
+
+type modDirectory struct {
+	Name    string         `json:"name"`
+	Mods    []mod          `json:"mods"`
+	Subdirs []modDirectory `json:"folders"`
+}
 
 func RGBA(r uint8, g uint8, b uint8, a uint8) color.Color {
 	return color.RGBA{R: r,
@@ -78,6 +95,10 @@ func run() {
 	}
 	win1, err = pixelgl.NewWindow(cfg)
 	if err != nil {
+		log.Println(err)
+		return
+	}
+	if err != nil {
 		panic(err)
 	}
 	cfg = pixelgl.WindowConfig{
@@ -101,7 +122,11 @@ func run() {
 	}
 }
 
+var openedFileSelectDialog = false
+
 func homePage() {
+	// Variables
+
 	// Set windows
 	win1.Hide()
 	win2.SetBounds(pixel.R(0, 0, 600, 400))
@@ -146,6 +171,70 @@ func homePage() {
 	title = text.New(pixel.V(0, 0), atlas)
 	fmt.Fprintln(title, "New Project")
 	title.Draw(win2, pixel.IM.Scaled(pixel.V(0, 0), 2).Moved(pixel.V(600-(138+title.Bounds().W()), 115+40)))
+
+	// Check mouse events
+	if win2.JustPressed(pixelgl.MouseButtonLeft) && !openedFileSelectDialog {
+		// Pressed open file
+		if mouse.X > 30 && mouse.X < 255 && mouse.Y > 115 && mouse.Y < 370 {
+			openedFileSelectDialog = true
+			go func() {
+				// Ask user what file to load
+				defer func() { openedFileSelectDialog = false }()
+				file, err := dialog.File().Load()
+				if err != dialog.Cancelled && err != nil {
+					panic(err)
+				} else if err == dialog.Cancelled {
+					log.Println("User cancelled file selection")
+					return
+				}
+
+				// Read file
+				f, err := os.ReadFile(file)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+
+				// Load file
+				err = json.Unmarshal(f, &openProject)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+
+				projectLocation = file
+				sceneName = "Project Browser"
+			}()
+		} else if 600-mouse.X > 30 && 600-mouse.X < 255 && mouse.Y > 115 && mouse.Y < 370 {
+			openedFileSelectDialog = true
+			go func() {
+				defer func() { openedFileSelectDialog = false }()
+				file, err := dialog.File().Save()
+				if err != dialog.Cancelled && err != nil {
+					panic(err)
+				} else if err == dialog.Cancelled {
+					log.Println("User cancelled file selection")
+					return
+				}
+
+				// Encode the JSON
+				f, err := json.Marshal(openProject)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+
+				// Create the project file
+				if err := os.WriteFile(file, f, os.ModePerm); err != nil {
+					log.Println(err)
+					return
+				}
+
+				projectLocation = file
+				sceneName = "Project Browser"
+			}()
+		}
+	}
 }
 
 func main() {
