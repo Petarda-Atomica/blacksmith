@@ -170,7 +170,7 @@ func drawSidebar() mod {
 		} else {
 			sprite = pixel.NewSprite(closedfolderpic, closedfolderpic.Bounds())
 		}
-		objectHeight = drawSidebarItem(val.Name, sprite, screen, drawIndex, sidebarScrollIndex)
+		objectHeight = drawSidebarItem(val.Name, sprite, screen, drawIndex, sidebarScrollIndex, false)
 		drawIndex++
 
 		// Check if collapsed
@@ -181,7 +181,7 @@ func drawSidebar() mod {
 		// Render subfiles
 		for _, vaj := range val.Mods {
 			sprite = pixel.NewSprite(cubepic, cubepic.Bounds())
-			drawSidebarItem(vaj.Name, sprite, screen, drawIndex, sidebarScrollIndex)
+			drawSidebarItem(vaj.Name, sprite, screen, drawIndex, sidebarScrollIndex, true)
 			drawIndex++
 		}
 
@@ -190,12 +190,12 @@ func drawSidebar() mod {
 	// Render non-foldered mods
 	for _, val := range openProject.Mods {
 		sprite := pixel.NewSprite(cubepic, cubepic.Bounds())
-		drawSidebarItem(val.Name, sprite, screen, drawIndex, sidebarScrollIndex)
+		drawSidebarItem(val.Name, sprite, screen, drawIndex, sidebarScrollIndex, false)
 		drawIndex++
 	}
 
 	// Handle sidebar scrolling
-	if win1.MousePosition().X <= 200 {
+	if win1.MousePosition().X <= 300 {
 		scrollingPower := 7.5
 		sidebarScrollIndex += win1.MouseScroll().Y * scrollingPower
 
@@ -210,7 +210,7 @@ func drawSidebar() mod {
 	}
 
 	// Handle clicking
-	if win1.MousePosition().X < 200 && win1.JustPressed(pixelgl.MouseButtonLeft) {
+	if win1.MousePosition().X < 300 && win1.JustPressed(pixelgl.MouseButtonLeft) {
 		objectNO := int(math.Floor((screen.H() - win1.MousePosition().Y + sidebarScrollIndex) / objectHeight))
 
 		// Determine what was clicked and take action
@@ -246,28 +246,36 @@ func drawSidebar() mod {
 	return pressedMod
 }
 
-func drawSidebarItem(name string, sprite *pixel.Sprite, screen pixel.Rect, drawIndex int, scrollIndex float64) float64 {
+func drawSidebarItem(name string, sprite *pixel.Sprite, screen pixel.Rect, drawIndex int, scrollIndex float64, child bool) float64 {
 	// Load icon
 	marginTop := 10.0
 	marginLeft := 10.0
-	spriteScale := 0.07
+	spriteScale := 0.055
+	additionalMargin := 0.0
+	if child {
+		additionalMargin += 20.0
+	}
 
 	// Draw icon
-	sprite.Draw(win1, pixel.IM.Scaled(pixel.V(0, 0), spriteScale).Moved(pixel.V(sprite.Frame().W()*spriteScale/2+marginLeft, scrollIndex+screen.H()-(sprite.Frame().H()*spriteScale+marginTop)*float64(drawIndex)-marginTop-sprite.Frame().H()*spriteScale/2)))
+	sprite.Draw(win1, pixel.IM.Scaled(pixel.V(0, 0), spriteScale).Moved(pixel.V(sprite.Frame().W()*spriteScale/2+marginLeft+additionalMargin, scrollIndex+screen.H()-(sprite.Frame().H()*spriteScale+marginTop)*float64(drawIndex)-marginTop-sprite.Frame().H()*spriteScale/2)))
 
 	// Draw folder title
 	txt := text.New(pixel.V(0, 0), atlas)
 	txt.Color = colornames.White
+	origtextScale := .55
+	fmt.Fprint(txt, string(name[0]))
+	textScale := (sprite.Frame().H() * spriteScale / txt.Bounds().H()) * origtextScale
 	for i, val := range name {
-		if i > 13 {
+		if i == 0 {
+			continue
+		}
+		if txt.Bounds().W()*textScale > 200 {
 			fmt.Fprint(txt, "...")
 			break
 		}
 		fmt.Fprint(txt, string(val))
 	}
-	textScale := .7
-	textScale *= sprite.Frame().H() * spriteScale / txt.Bounds().H()
-	txt.Draw(win1, pixel.IM.Scaled(pixel.V(0, 0), textScale).Moved(pixel.V(2*marginLeft+sprite.Frame().W()*spriteScale, scrollIndex+screen.H()-float64(drawIndex+1)*(marginTop+sprite.Frame().H()*spriteScale))))
+	txt.Draw(win1, pixel.IM.Scaled(pixel.V(0, 0), textScale).Moved(pixel.V(additionalMargin+2*marginLeft+sprite.Frame().W()*spriteScale, scrollIndex+screen.H()-float64(drawIndex+1)*(marginTop+sprite.Frame().H()*spriteScale))))
 
 	return marginTop + sprite.Frame().H()*spriteScale
 }
